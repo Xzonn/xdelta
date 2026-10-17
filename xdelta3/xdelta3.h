@@ -929,6 +929,8 @@ struct _xd3_stream {
   void *opaque;            /* private data object passed to
                               alloc, free, and getblk */
   uint32_t flags;          /* various options */
+  int (*external_emit)(xd3_stream *, const xd3_hinst *, const uint8_t *);
+  uint32_t (*external_adler32)(xd3_stream *);
 
   /* secondary compressor configuration */
   xd3_sec_cfg sec_data; /* Secondary compressor config: data */

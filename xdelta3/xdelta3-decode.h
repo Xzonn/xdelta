@@ -82,6 +82,10 @@ static int xd3_decode_init_window(xd3_stream *stream) {
  * VCD_TARGET copy-window.  Also sets the base of the two copy
  * segments. */
 static int xd3_decode_setup_buffers(xd3_stream *stream) {
+  if (stream->external_emit) {
+    stream->space_out = stream->dec_tgtlen;
+    return 0;
+  }
   /* If VCD_TARGET is set then the previous buffer may be reused. */
   if (stream->dec_win_ind & VCD_TARGET) {
     /* Note: this implementation is untested, since Xdelta3 itself
@@ -269,7 +273,7 @@ static int xd3_decode_parse_halfinst(xd3_stream *stream, xd3_hinst *inst) {
 
     /* Check: a VCD_TARGET or VCD_SOURCE copy cannot exceed the remaining
      * buffer space in its own segment. */
-    if (inst->addr < stream->dec_cpylen &&
+    if (!stream->external_emit && inst->addr < stream->dec_cpylen &&
         inst->addr + inst->size > stream->dec_cpylen) {
       stream->msg = "size too large";
       return XD3_INVALID_INPUT;
@@ -353,6 +357,22 @@ static int xd3_decode_output_halfinst(xd3_stream *stream, xd3_hinst *inst) {
   }
 
   XD3_ASSERT(inst->type != XD3_NOOP);
+
+  if (stream->external_emit) {
+    usize_t data_size = inst->type == XD3_RUN ? 1 : inst->type == XD3_ADD ? take : 0;
+    if (data_size && (stream->data_sect.buf == stream->data_sect.buf_max ||
+        data_size > (usize_t)(stream->data_sect.buf_max - stream->data_sect.buf))) {
+      stream->msg = "data underflow";
+      return XD3_INVALID_INPUT;
+    }
+    int ret = stream->external_emit(stream, inst, stream->data_sect.buf);
+    if (ret) return ret;
+    if (data_size) stream->data_sect.buf += data_size;
+    stream->avail_out += take;
+    inst->type = XD3_NOOP;
+    inst->size = 0;
+    return 0;
+  }
 
   switch (inst->type) {
   case XD3_RUN: {
@@ -697,7 +717,9 @@ static int xd3_decode_emit(xd3_stream *stream) {
   /* OPT: Should cksum computation be combined with the above loop? */
   if ((stream->dec_win_ind & VCD_ADLER32) != 0 &&
       (stream->flags & XD3_ADLER32_NOVER) == 0) {
-    uint32_t a32 = adler32(1L, stream->next_out, stream->avail_out);
+    uint32_t a32 = stream->external_emit
+        ? stream->external_adler32(stream)
+        : adler32(1L, stream->next_out, stream->avail_out);
 
     if (a32 != stream->dec_adler32) {
       stream->msg = "target window checksum mismatch: the supplied "
@@ -1073,7 +1095,7 @@ int xd3_decode_input(xd3_stream *stream) {
     return ret;
 
   case DEC_FINISH: {
-    if (stream->dec_win_ind & VCD_TARGET) {
+    if ((stream->dec_win_ind & VCD_TARGET) && !stream->external_emit) {
       if (stream->dec_lastwin == NULL) {
         stream->dec_lastwin = stream->next_out;
         stream->dec_lastspace = stream->space_out;
