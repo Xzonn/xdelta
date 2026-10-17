@@ -287,11 +287,17 @@ static inline uint32_t xd3_sizeof_size(usize_t num) {
   return xd3_sizeof_uint32_t(num);
 }
 static inline int xd3_decode_size(xd3_stream *stream, usize_t *valp) {
-  return xd3_decode_uint32_t(stream, (uint32_t *)valp);
+  uint32_t value;
+  int ret = xd3_decode_uint32_t(stream, &value);
+  if (ret == 0) *valp = value;
+  return ret;
 }
 static inline int xd3_read_size(xd3_stream *stream, const uint8_t **inpp,
                                 const uint8_t *maxp, usize_t *valp) {
-  return xd3_read_uint32_t(stream, inpp, maxp, (uint32_t *)valp);
+  uint32_t value;
+  int ret = xd3_read_uint32_t(stream, inpp, maxp, &value);
+  if (ret == 0) *valp = value;
+  return ret;
 }
 #if XD3_ENCODER
 static inline int xd3_emit_size(xd3_stream *stream, xd3_output **output,
@@ -312,11 +318,17 @@ static inline uint32_t xd3_sizeof_size(usize_t num) {
   return xd3_sizeof_uint64_t(num);
 }
 static inline int xd3_decode_size(xd3_stream *stream, usize_t *valp) {
-  return xd3_decode_uint64_t(stream, (uint64_t *)valp);
+  uint64_t value;
+  int ret = xd3_decode_uint64_t(stream, &value);
+  if (ret == 0) *valp = value;
+  return ret;
 }
 static inline int xd3_read_size(xd3_stream *stream, const uint8_t **inpp,
                                 const uint8_t *maxp, usize_t *valp) {
-  return xd3_read_uint64_t(stream, inpp, maxp, (uint64_t *)valp);
+  uint64_t value;
+  int ret = xd3_read_uint64_t(stream, inpp, maxp, &value);
+  if (ret == 0) *valp = value;
+  return ret;
 }
 #if XD3_ENCODER
 static inline int xd3_emit_size(xd3_stream *stream, xd3_output **output,
@@ -331,7 +343,10 @@ static inline int xd3_emit_size(xd3_stream *stream, xd3_output **output,
 #define XOFF_T_MAX UINT32_MAX
 
 static inline int xd3_decode_offset(xd3_stream *stream, xoff_t *valp) {
-  return xd3_decode_uint32_t(stream, (uint32_t *)valp);
+  uint32_t value;
+  int ret = xd3_decode_uint32_t(stream, &value);
+  if (ret == 0) *valp = value;
+  return ret;
 }
 #if XD3_ENCODER
 static inline int xd3_emit_offset(xd3_stream *stream, xd3_output **output,
@@ -344,7 +359,10 @@ static inline int xd3_emit_offset(xd3_stream *stream, xd3_output **output,
 #define XOFF_T_MAX UINT64_MAX
 
 static inline int xd3_decode_offset(xd3_stream *stream, xoff_t *valp) {
-  return xd3_decode_uint64_t(stream, (uint64_t *)valp);
+  uint64_t value;
+  int ret = xd3_decode_uint64_t(stream, &value);
+  if (ret == 0) *valp = value;
+  return ret;
 }
 #if XD3_ENCODER
 static inline int xd3_emit_offset(xd3_stream *stream, xd3_output **output,
