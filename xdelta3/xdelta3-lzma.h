@@ -14,9 +14,6 @@
    limitations under the License.
 */
 
-/* Note: The use of the _easy_ decoder means we're not calling the
- * xd3_stream malloc hooks.  TODO(jmacd) Fix if anyone cares. */
-
 #ifndef _XDELTA3_LZMA_H_
 #define _XDELTA3_LZMA_H_
 
@@ -26,9 +23,19 @@ typedef struct _xd3_lzma_stream xd3_lzma_stream;
 
 struct _xd3_lzma_stream {
   lzma_stream lzma;
+  lzma_allocator allocator;
   lzma_options_lzma options;
   lzma_filter filters[2];
 };
+
+static void *xd3_lzma_allocate(void *opaque, size_t items, size_t size) {
+  if (size > (usize_t)-1) return NULL;
+  return xd3_alloc((xd3_stream *)opaque, items, (usize_t)size);
+}
+
+static void xd3_lzma_release(void *opaque, void *address) {
+  xd3_free((xd3_stream *)opaque, address);
+}
 
 static xd3_sec_stream *xd3_lzma_alloc(xd3_stream *stream) {
   return (xd3_sec_stream *)xd3_alloc(stream, sizeof(xd3_lzma_stream), 1);
@@ -45,6 +52,10 @@ static int xd3_lzma_init(xd3_stream *stream, xd3_lzma_stream *sec,
   int ret;
 
   memset(&sec->lzma, 0, sizeof(sec->lzma));
+  sec->allocator.alloc = xd3_lzma_allocate;
+  sec->allocator.free = xd3_lzma_release;
+  sec->allocator.opaque = stream;
+  sec->lzma.allocator = &sec->allocator;
 
   if (is_encode) {
     uint32_t preset =
@@ -100,7 +111,7 @@ static int xd3_decode_lzma(xd3_stream *stream, xd3_lzma_stream *sec,
       break;
 
     default:
-      stream->msg = "lzma decoding error";
+      stream->msg = lret == LZMA_MEM_ERROR ? "lzma decoder memory allocation failed" : "lzma decoding error";
       return XD3_INTERNAL;
     }
   }
